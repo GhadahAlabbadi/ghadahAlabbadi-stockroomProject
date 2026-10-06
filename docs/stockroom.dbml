@@ -54,7 +54,7 @@ Note ERD_Summary {
   '''
   - Category 1 to N Product: a product must have one category (mandatory); a category may have no products yet (optional).
   - Customer 1 to N Order: an order must have one customer (mandatory); a customer may have no orders yet (optional).
-  - Order 1 to N OrderItem: an item must belong to one order (mandatory); an order has one or more items in business terms.
+  - Order 1 to N OrderItem: an item must belong to one order (mandatory); in the database an order may have no items (not enforced, see README limitations).
   - Product 1 to N OrderItem: an item must refer to one product (mandatory); a product may never be ordered (optional).
   - Order M to N Product, resolved through OrderItem, which also stores quantity and unit_price.
   - The unique pair (order_id, product_id) prevents the same product appearing twice in one order.
