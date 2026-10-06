@@ -1,6 +1,7 @@
 from decimal import Decimal
 
-from django.db import transaction
+from django.db import connection, transaction
+from django.test.utils import CaptureQueriesContext
 from django.db.models import (
     Avg,
     Count,
@@ -177,3 +178,134 @@ def run_querysets():
 
     ask("Stock of product E001 after the rollback (back to the original value)",
         'Product.objects.filter(sku="E001").values_list("sku", "stock")')
+
+# ---------------------------------------------------------------------------
+# Section 9: Relationship queries and required explanations
+# ---------------------------------------------------------------------------
+
+def try_get(**kwargs):
+    """Call get() on Product and report the two errors it can raise."""
+    try:
+        return Product.objects.get(**kwargs)
+    except Product.DoesNotExist:
+        return "Product.DoesNotExist raised (get() found no match)"
+    except Product.MultipleObjectsReturned:
+        return "Product.MultipleObjectsReturned raised (get() found several matches)"
+
+
+def show_lazy_evaluation():
+    print("\nQuestion : When does a QuerySet actually touch the database?")
+    with CaptureQueriesContext(connection) as log:
+        print("Statement: queryset = Product.objects.filter(is_active=True).order_by('name')")
+        queryset = Product.objects.filter(is_active=True).order_by("name")
+        print("Result   : database queries so far =", len(log))
+
+        print("Statement: rows = list(queryset)")
+        rows = list(queryset)
+        print(f"Result   : database queries so far = {len(log)} ({len(rows)} rows loaded)")
+
+        print("Statement: list(queryset)   (same QuerySet again, rows are cached)")
+        list(queryset)
+        print("Result   : database queries so far =", len(log))
+
+        print("Statement: Product.objects.filter(is_active=True).count()   (a new QuerySet)")
+        Product.objects.filter(is_active=True).count()
+        print("Result   : database queries so far =", len(log))
+
+
+def explain(title, text):
+    print("\n" + "-" * 70)
+    print(title)
+    print("-" * 70)
+    print(text)
+
+
+def run_relationships():
+    heading("RELATIONSHIP QUERIES")
+
+    print("\n--- Forward traversal (from the model that holds the ForeignKey) ---")
+    ask("From a Product, access its Category",
+        'Product.objects.get(sku="E001").category')
+    ask("From an OrderItem, access the related Product",
+        "OrderItem.objects.filter(order__pk=5).first().product")
+    ask("From an Order, access its Customer",
+        "Order.objects.get(pk=5).customer")
+
+    print("\n--- Reverse traversal (through the related_name) ---")
+    ask("From a Category, return all related Products",
+        'Category.objects.get(name="Electronics").products.all()')
+    ask("From a Customer, return all related Orders",
+        'Customer.objects.get(email="aisha@example.com").orders.all()')
+    ask("From an Order, return its OrderItems",
+        "Order.objects.get(pk=5).items.all()")
+
+    print("\n--- Many-to-many through OrderItem ---")
+    ask("Return all products contained in one selected order (order 5)",
+        "Order.objects.get(pk=5).products.all()")
+    ask("Return all orders that contain one selected product (SKU E001)",
+        'Product.objects.get(sku="E001").orders.all()')
+
+    print("\n--- The same two questions written as lookups across relationships ---")
+    ask("Products in order 5, using a lookup across OrderItem",
+        "Product.objects.filter(order_items__order__pk=5)")
+    ask("Orders containing SKU E001, using a lookup across OrderItem",
+        'Order.objects.filter(items__product__sku="E001")')
+
+    print("\n--- get() compared with filter() ---")
+    ask("get(): exactly one match returns one object",
+        'Product.objects.get(sku="E001")')
+    ask("filter(): the same condition returns a QuerySet",
+        'Product.objects.filter(sku="E001")')
+    ask("get() when nothing matches", 'try_get(sku="NOPE")')
+    ask("filter() when nothing matches", 'Product.objects.filter(sku="NOPE")')
+    ask("get() when several rows match", "try_get(is_active=True)")
+
+    print("\n--- Lazy evaluation ---")
+    show_lazy_evaluation()
+
+    heading("REQUIRED EXPLANATIONS")
+
+    explain(
+        "1. Forward versus reverse relationship traversal",
+        "Forward traversal follows a ForeignKey from the model that declares it to the\n"
+        "model it points to, and returns one object: product.category,\n"
+        "order_item.product, order.customer.\n"
+        "Reverse traversal goes the other way, from the referenced model back to the\n"
+        "many side, through the related_name, and returns a related manager that gives\n"
+        "a QuerySet: category.products, customer.orders, order.items,\n"
+        "product.order_items.\n"
+        "Both directions use the same foreign key column (for example\n"
+        "inventory_product.category_id); only the direction of the lookup differs.",
+    )
+
+    explain(
+        "2. Why OrderItem is a model and not only an automatic many-to-many table",
+        "An automatic many-to-many table holds only two foreign keys. An order line\n"
+        "needs more: the quantity, the unit_price at the time of sale, and the rule\n"
+        "that the same product cannot appear twice in one order. These need their own\n"
+        "columns and constraints, so OrderItem is a real model. Order.products still\n"
+        "works as a many-to-many shortcut because it is declared with\n"
+        "through='OrderItem'. The model also makes quantity * unit_price available\n"
+        "for the order totals in the aggregation section.",
+    )
+
+    explain(
+        "3. The difference between get() and filter()",
+        "get() returns exactly one object. It raises DoesNotExist when nothing matches\n"
+        "and MultipleObjectsReturned when several rows match. filter() always returns\n"
+        "a QuerySet, which may be empty, hold one row or hold many rows, and it never\n"
+        "raises for a missing row. Use get() when exactly one row is expected (a\n"
+        "primary key or unique field) and filter() when zero or more rows are fine.",
+    )
+
+    explain(
+        "4. When a QuerySet is evaluated, and why it is called lazy",
+        "A QuerySet is lazy: building it and chaining filter(), exclude() or\n"
+        "order_by() only describes the SQL and does not run it. The database is\n"
+        "queried when the QuerySet is evaluated: by iterating over it, list(), len(),\n"
+        "bool(), printing it, indexing one item, or calling count(), exists() or\n"
+        "first(). After the first evaluation the rows are cached inside that QuerySet,\n"
+        "so using it again does not query again. Laziness lets Django combine all the\n"
+        "chained conditions into one SQL statement and avoids queries whose results\n"
+        "are never used.",
+    )
