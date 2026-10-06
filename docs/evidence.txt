@@ -1,0 +1,424 @@
+﻿
+======================================================================
+CRUD OPERATIONS (all changes are rolled back at the end)
+======================================================================
+
+Question : Create a category
+Statement: category = Category.objects.create(name="Demo Category")
+
+Question : Create a product
+Statement: product = Product.objects.create(name="Demo Product", sku="DEMO-001", price=Decimal("10.00"), stock=7, category=category)
+
+Question : Create a customer
+Statement: customer = Customer.objects.create(name="Demo Customer", email="demo@example.com")
+
+Question : Create an order
+Statement: order = Order.objects.create(customer=customer)
+
+Question : Create an order item
+Statement: item = OrderItem.objects.create(order=order, product=product, quantity=2, unit_price=Decimal("10.00"))
+
+Question : What was created?
+Statement: [category, product, customer, order, item]
+Result   : [<Category: Demo Category>, <Product: Demo Product (DEMO-001)>, <Customer: Demo Customer <demo@example.com>>, <Order: Order #7 (Pending)>, <OrderItem: 2 x Demo Product (order #7)>]
+
+Question : Retrieve one product by primary key
+Statement: Product.objects.get(pk=product.pk)
+Result   : Demo Product (DEMO-001)
+
+Question : List several products (first three, default ordering by name)
+Statement: Product.objects.all()[:3]
+Result   : 3 row(s)
+            Bluetooth Speaker (E003)
+            Coffee Beans 1kg (G001)
+            Demo Product (DEMO-001)
+
+Question : Update the product price and stock
+Statement: product.price = Decimal("12.50"); product.stock = 20; product.save(update_fields=["price", "stock"])
+
+Question : Confirm the change by reading the row from the database
+Statement: Product.objects.filter(pk=product.pk).values('name', 'price', 'stock')
+Result   : 1 row(s)
+            {'name': 'Demo Product', 'price': Decimal('12.50'), 'stock': 20}
+
+Question : Delete a category that still has products (on_delete=PROTECT)
+Statement: try_delete(category)
+Result   : ProtectedError raised, nothing deleted (1 protected object(s))
+
+Question : Create an unreferenced category
+Statement: unused = Category.objects.create(name="Unused Category")
+
+Question : Delete the unreferenced category
+Statement: unused.delete()
+Result   : (1, {'inventory.Category': 1})
+
+Question : Delete an order that has items (on_delete=CASCADE on OrderItem.order)
+Statement: order.delete()
+Result   : (2, {'inventory.OrderItem': 1, 'inventory.Order': 1})
+
+Question : Is the product still there after its order was deleted?
+Statement: Product.objects.filter(pk=product.pk).exists()
+Result   : True
+
+Question : Is the sample data unchanged after the demo? (products stored)
+Statement: Product.objects.count()
+Result   : 10
+
+======================================================================
+QUERYSETS AND FIELD LOOKUPS
+======================================================================
+
+Question : Which products are active?
+Statement: Product.objects.filter(is_active=True)
+Result   : 8 row(s)
+            Bluetooth Speaker (E003)
+            Coffee Beans 1kg (G001)
+            Gel Pen Pack (S002)
+            Green Tea Box (G002)
+            Notebook A5 (S001)
+            USB-C Cable (E002)
+            Webcam HD (E004)
+            Wireless Mouse (E001)
+
+Question : Which products have stock less than or equal to 5?
+Statement: Product.objects.filter(stock__lte=5)
+Result   : 4 row(s)
+            Bluetooth Speaker (E003)
+            Gel Pen Pack (S002)
+            Green Tea Box (G002)
+            Marker Set (S003)
+
+Question : Which products cost between 10.00 and 30.00 (inclusive)?
+Statement: Product.objects.filter(price__range=(Decimal("10.00"), Decimal("30.00")))
+Result   : 4 row(s)
+            Coffee Beans 1kg (G001)
+            Honey Jar (G003)
+            Marker Set (S003)
+            Wireless Mouse (E001)
+
+Question : Which product names contain 'CABLE' (case-insensitive search)?
+Statement: Product.objects.filter(name__icontains="CABLE")
+Result   : 1 row(s)
+            USB-C Cable (E002)
+
+Question : Which products remain after excluding the inactive ones?
+Statement: Product.objects.exclude(is_active=False)
+Result   : 8 row(s)
+            Bluetooth Speaker (E003)
+            Coffee Beans 1kg (G001)
+            Gel Pen Pack (S002)
+            Green Tea Box (G002)
+            Notebook A5 (S001)
+            USB-C Cable (E002)
+            Webcam HD (E004)
+            Wireless Mouse (E001)
+
+Question : List products ordered by category name, then product name
+Statement: Product.objects.order_by("category__name", "name").values_list("category__name", "name")
+Result   : 10 row(s)
+            ('Electronics', 'Bluetooth Speaker')
+            ('Electronics', 'USB-C Cable')
+            ('Electronics', 'Webcam HD')
+            ('Electronics', 'Wireless Mouse')
+            ('Groceries', 'Coffee Beans 1kg')
+            ('Groceries', 'Green Tea Box')
+            ('Groceries', 'Honey Jar')
+            ('Stationery', 'Gel Pen Pack')
+            ('Stationery', 'Marker Set')
+            ('Stationery', 'Notebook A5')
+
+Question : What are the five most recently created orders (newest first)?
+Statement: Order.objects.order_by("-created_at", "-pk")[:5]
+Result   : 5 row(s)
+            Order #6 (Pending)
+            Order #5 (Paid)
+            Order #4 (Cancelled)
+            Order #3 (Pending)
+            Order #2 (Shipped)
+
+Question : Q object, matching on the NAME: search 'mouse' in name OR sku
+Statement: Product.objects.filter(Q(name__icontains="mouse") | Q(sku__icontains="mouse"))
+Result   : 1 row(s)
+            Wireless Mouse (E001)
+
+Question : Q object, matching on the SKU: search 'g00' in name OR sku
+Statement: Product.objects.filter(Q(name__icontains="g00") | Q(sku__icontains="g00"))
+Result   : 3 row(s)
+            Coffee Beans 1kg (G001)
+            Green Tea Box (G002)
+            Honey Jar (G003)
+
+Question : F expression (comparison): which order items were sold at a price different from the product's current price?
+Statement: OrderItem.objects.exclude(unit_price=F("product__price"))
+Result   : 1 row(s)
+            1 x Wireless Mouse (order #5)
+
+Question : Stock of product E001 before the update
+Statement: Product.objects.filter(sku="E001").values_list("sku", "stock")
+Result   : 1 row(s)
+            ('E001', 40)
+
+Question : F expression (update): sell 5 units of E001 using a database-side update (number of rows updated)
+Statement: Product.objects.filter(sku="E001").update(stock=F("stock") - 5)
+Result   : 1
+
+Question : Stock of product E001 after the update
+Statement: Product.objects.filter(sku="E001").values_list("sku", "stock")
+Result   : 1 row(s)
+            ('E001', 35)
+
+Question : Stock of product E001 after the rollback (back to the original value)
+Statement: Product.objects.filter(sku="E001").values_list("sku", "stock")
+Result   : 1 row(s)
+            ('E001', 40)
+
+======================================================================
+RELATIONSHIP QUERIES
+======================================================================
+
+--- Forward traversal (from the model that holds the ForeignKey) ---
+
+Question : From a Product, access its Category
+Statement: Product.objects.get(sku="E001").category
+Result   : Electronics
+
+Question : From an OrderItem, access the related Product
+Statement: OrderItem.objects.filter(order__pk=5).first().product
+Result   : Wireless Mouse (E001)
+
+Question : From an Order, access its Customer
+Statement: Order.objects.get(pk=5).customer
+Result   : Lina Haddad <lina@example.com>
+
+--- Reverse traversal (through the related_name) ---
+
+Question : From a Category, return all related Products
+Statement: Category.objects.get(name="Electronics").products.all()
+Result   : 4 row(s)
+            Bluetooth Speaker (E003)
+            USB-C Cable (E002)
+            Webcam HD (E004)
+            Wireless Mouse (E001)
+
+Question : From a Customer, return all related Orders
+Statement: Customer.objects.get(email="aisha@example.com").orders.all()
+Result   : 3 row(s)
+            Order #6 (Pending)
+            Order #2 (Shipped)
+            Order #1 (Paid)
+
+Question : From an Order, return its OrderItems
+Statement: Order.objects.get(pk=5).items.all()
+Result   : 3 row(s)
+            1 x Wireless Mouse (order #5)
+            1 x Webcam HD (order #5)
+            1 x Coffee Beans 1kg (order #5)
+
+--- Many-to-many through OrderItem ---
+
+Question : Return all products contained in one selected order (order 5)
+Statement: Order.objects.get(pk=5).products.all()
+Result   : 3 row(s)
+            Coffee Beans 1kg (G001)
+            Webcam HD (E004)
+            Wireless Mouse (E001)
+
+Question : Return all orders that contain one selected product (SKU E001)
+Statement: Product.objects.get(sku="E001").orders.all()
+Result   : 2 row(s)
+            Order #5 (Paid)
+            Order #1 (Paid)
+
+--- The same two questions written as lookups across relationships ---
+
+Question : Products in order 5, using a lookup across OrderItem
+Statement: Product.objects.filter(order_items__order__pk=5)
+Result   : 3 row(s)
+            Coffee Beans 1kg (G001)
+            Webcam HD (E004)
+            Wireless Mouse (E001)
+
+Question : Orders containing SKU E001, using a lookup across OrderItem
+Statement: Order.objects.filter(items__product__sku="E001")
+Result   : 2 row(s)
+            Order #5 (Paid)
+            Order #1 (Paid)
+
+--- get() compared with filter() ---
+
+Question : get(): exactly one match returns one object
+Statement: Product.objects.get(sku="E001")
+Result   : Wireless Mouse (E001)
+
+Question : filter(): the same condition returns a QuerySet
+Statement: Product.objects.filter(sku="E001")
+Result   : 1 row(s)
+            Wireless Mouse (E001)
+
+Question : get() when nothing matches
+Statement: try_get(sku="NOPE")
+Result   : Product.DoesNotExist raised (get() found no match)
+
+Question : filter() when nothing matches
+Statement: Product.objects.filter(sku="NOPE")
+Result   : 0 row(s)
+
+Question : get() when several rows match
+Statement: try_get(is_active=True)
+Result   : Product.MultipleObjectsReturned raised (get() found several matches)
+
+--- Lazy evaluation ---
+
+Question : When does a QuerySet actually touch the database?
+Statement: queryset = Product.objects.filter(is_active=True).order_by('name')
+Result   : database queries so far = 0
+Statement: rows = list(queryset)
+Result   : database queries so far = 1 (8 rows loaded)
+Statement: list(queryset)   (same QuerySet again, rows are cached)
+Result   : database queries so far = 1
+Statement: Product.objects.filter(is_active=True).count()   (a new QuerySet)
+Result   : database queries so far = 2
+
+======================================================================
+REQUIRED EXPLANATIONS
+======================================================================
+
+----------------------------------------------------------------------
+1. Forward versus reverse relationship traversal
+----------------------------------------------------------------------
+Forward traversal follows a ForeignKey from the model that declares it to the
+model it points to, and returns one object: product.category,
+order_item.product, order.customer.
+Reverse traversal goes the other way, from the referenced model back to the
+many side, through the related_name, and returns a related manager that gives
+a QuerySet: category.products, customer.orders, order.items,
+product.order_items.
+Both directions use the same foreign key column (for example
+inventory_product.category_id); only the direction of the lookup differs.
+
+----------------------------------------------------------------------
+2. Why OrderItem is a model and not only an automatic many-to-many table
+----------------------------------------------------------------------
+An automatic many-to-many table holds only two foreign keys. An order line
+needs more: the quantity, the unit_price at the time of sale, and the rule
+that the same product cannot appear twice in one order. These need their own
+columns and constraints, so OrderItem is a real model. Order.products still
+works as a many-to-many shortcut because it is declared with
+through='OrderItem'. The model also makes quantity * unit_price available
+for the order totals in the aggregation section.
+
+----------------------------------------------------------------------
+3. The difference between get() and filter()
+----------------------------------------------------------------------
+get() returns exactly one object. It raises DoesNotExist when nothing matches
+and MultipleObjectsReturned when several rows match. filter() always returns
+a QuerySet, which may be empty, hold one row or hold many rows, and it never
+raises for a missing row. Use get() when exactly one row is expected (a
+primary key or unique field) and filter() when zero or more rows are fine.
+
+----------------------------------------------------------------------
+4. When a QuerySet is evaluated, and why it is called lazy
+----------------------------------------------------------------------
+A QuerySet is lazy: building it and chaining filter(), exclude() or
+order_by() only describes the SQL and does not run it. The database is
+queried when the QuerySet is evaluated: by iterating over it, list(), len(),
+bool(), printing it, indexing one item, or calling count(), exists() or
+first(). After the first evaluation the rows are cached inside that QuerySet,
+so using it again does not query again. Laziness lets Django combine all the
+chained conditions into one SQL statement and avoids queries whose results
+are never used.
+======================================================================
+AGGREGATION AND ANNOTATION
+======================================================================
+
+Question : How many products exist in total?
+Statement: Product.objects.aggregate(total_products=Count("pk"))
+Result   : {'total_products': 10}
+
+Question : What is the average price of active products?
+Statement: Product.objects.filter(is_active=True).aggregate(average_price=Avg("price"))
+Result   : {'average_price': Decimal('21.7287500000000')}
+
+Question : What is the total stock of active products?
+Statement: Product.objects.filter(is_active=True).aggregate(total_stock=Sum("stock"))
+Result   : {'total_stock': 462}
+
+Question : How many products does each category have?
+Statement: Category.objects.annotate(product_count=Count("products")).order_by("name").values_list("name", "product_count")
+Result   : 3 row(s)
+            ('Electronics', 4)
+            ('Groceries', 3)
+            ('Stationery', 3)
+
+Question : How many items does each order have?
+Statement: Order.objects.annotate(item_count=Count("items")).order_by("pk").values_list("pk", "item_count")
+Result   : 6 row(s)
+            (1, 2)
+            (2, 2)
+            (3, 2)
+            (4, 1)
+            (5, 3)
+            (6, 2)
+
+Question : What is the total value of each order (quantity x unit_price, summed)?
+Statement: Order.objects.annotate(total_value=Sum(ExpressionWrapper(F("items__quantity") * F("items__unit_price"), output_field=DecimalField(max_digits=12, decimal_places=2)))).order_by("pk").values_list("pk", "total_value")
+Result   : 6 row(s)
+            (1, Decimal('75.4800000000000'))
+            (2, Decimal('58.3000000000000'))
+            (3, Decimal('99.8800000000000'))
+            (4, Decimal('32.5'))
+            (5, Decimal('86.9900000000000'))
+            (6, Decimal('66.7000000000000'))
+
+Question : Cross-check: what is the combined value of all order items?
+Statement: OrderItem.objects.aggregate(grand_total=Sum(ExpressionWrapper(F("quantity") * F("unit_price"), output_field=DecimalField(max_digits=12, decimal_places=2))))
+Result   : {'grand_total': Decimal('419.850000000000')}
+
+Question : How many ACTIVE products does each category have?
+Statement: Category.objects.annotate(active_count=Count("products", filter=Q(products__is_active=True))).order_by("-active_count", "name").values_list("name", "active_count")
+Result   : 3 row(s)
+            ('Electronics', 4)
+            ('Groceries', 2)
+            ('Stationery', 2)
+
+Question : Which category has the highest number of active products?
+Statement: Category.objects.annotate(active_count=Count("products", filter=Q(products__is_active=True))).order_by("-active_count", "name").values_list("name", "active_count").first()
+Result   : ('Electronics', 4)
+
+EXPLANATIONS
+----------------------------------------------------------------------
+1. Why aggregate() returns one dictionary:
+   aggregate() collapses the whole queryset into a single summary row, so
+   there is nothing to attach it to except the query as a whole. Django
+   returns it as one dict such as {'total_stock': 462}, keyed by the name
+   given in the call. It is a terminal operation: it does not return a
+   queryset, so it cannot be filtered or chained afterwards.
+
+2. Why annotate() adds a value to each object or group:
+   annotate() keeps the queryset and attaches a calculated attribute to
+   every row it returns (for example category.product_count). The result
+   is still a queryset, so it can be filtered, ordered and sliced, and
+   the calculated value can be used in later filters.
+
+3. What defines the group in the category calculation:
+   Category.objects.annotate(Count('products')) groups by Category. Each
+   category row is joined to its products through the reverse foreign
+   key, and Count counts the joined products for that one category.
+
+4. What defines the group in the order calculations:
+   Order.objects.annotate(...) groups by Order. Each order is joined to
+   its OrderItem rows. Count('items') counts those rows, and the total
+   value multiplies quantity by unit_price on each item row before Sum
+   adds them up for that single order.
+
+5. Why the two order annotations are run separately:
+   Combining several annotations over the same join can multiply rows and
+   inflate the counts and sums. Running them in separate queries keeps
+   every number correct and easy to verify.
+
+6. Confirmation against the sample data:
+   10 products in total, 8 active; average active price 21.72875; active
+   stock 462; categories hold 4, 3 and 3 products; orders hold 2, 2, 2, 1,
+   3 and 2 items; order totals 75.48, 58.30, 99.88, 32.50, 86.99 and
+   66.70, which add up to 419.85.
+

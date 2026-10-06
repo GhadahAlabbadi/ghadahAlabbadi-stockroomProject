@@ -309,3 +309,108 @@ def run_relationships():
         "chained conditions into one SQL statement and avoids queries whose results\n"
         "are never used.",
     )
+
+def run_aggregation():
+    print("=" * 70)
+    print("AGGREGATION AND ANNOTATION")
+    print("=" * 70)
+
+    # ---------- aggregate() ----------
+    ask(
+        "How many products exist in total?",
+        'Product.objects.aggregate(total_products=Count("pk"))',
+    )
+    ask(
+        "What is the average price of active products?",
+        'Product.objects.filter(is_active=True).aggregate(average_price=Avg("price"))',
+    )
+    ask(
+        "What is the total stock of active products?",
+        'Product.objects.filter(is_active=True).aggregate(total_stock=Sum("stock"))',
+    )
+
+    # ---------- annotate() ----------
+    ask(
+        "How many products does each category have?",
+        'Category.objects.annotate(product_count=Count("products"))'
+        '.order_by("name").values_list("name", "product_count")',
+    )
+    ask(
+        "How many items does each order have?",
+        'Order.objects.annotate(item_count=Count("items"))'
+        '.order_by("pk").values_list("pk", "item_count")',
+    )
+    ask(
+        "What is the total value of each order (quantity x unit_price, summed)?",
+        'Order.objects.annotate(total_value=Sum(ExpressionWrapper('
+        'F("items__quantity") * F("items__unit_price"), '
+        'output_field=DecimalField(max_digits=12, decimal_places=2))))'
+        '.order_by("pk").values_list("pk", "total_value")',
+    )
+
+    # ---------- cross-check against the sample data ----------
+    ask(
+        "Cross-check: what is the combined value of all order items?",
+        'OrderItem.objects.aggregate(grand_total=Sum(ExpressionWrapper('
+        'F("quantity") * F("unit_price"), '
+        'output_field=DecimalField(max_digits=12, decimal_places=2))))',
+    )
+
+    # ---------- optional challenge ----------
+    ask(
+        "How many ACTIVE products does each category have?",
+        'Category.objects.annotate(active_count=Count("products", '
+        'filter=Q(products__is_active=True)))'
+        '.order_by("-active_count", "name").values_list("name", "active_count")',
+    )
+    ask(
+        "Which category has the highest number of active products?",
+        'Category.objects.annotate(active_count=Count("products", '
+        'filter=Q(products__is_active=True)))'
+        '.order_by("-active_count", "name").values_list("name", "active_count").first()',
+    )
+
+    print()
+    print("EXPLANATIONS")
+    print("-" * 70)
+    print(
+        "1. Why aggregate() returns one dictionary:\n"
+        "   aggregate() collapses the whole queryset into a single summary row, so\n"
+        "   there is nothing to attach it to except the query as a whole. Django\n"
+        "   returns it as one dict such as {'total_stock': 462}, keyed by the name\n"
+        "   given in the call. It is a terminal operation: it does not return a\n"
+        "   queryset, so it cannot be filtered or chained afterwards.\n"
+    )
+    print(
+        "2. Why annotate() adds a value to each object or group:\n"
+        "   annotate() keeps the queryset and attaches a calculated attribute to\n"
+        "   every row it returns (for example category.product_count). The result\n"
+        "   is still a queryset, so it can be filtered, ordered and sliced, and\n"
+        "   the calculated value can be used in later filters.\n"
+    )
+    print(
+        "3. What defines the group in the category calculation:\n"
+        "   Category.objects.annotate(Count('products')) groups by Category. Each\n"
+        "   category row is joined to its products through the reverse foreign\n"
+        "   key, and Count counts the joined products for that one category.\n"
+    )
+    print(
+        "4. What defines the group in the order calculations:\n"
+        "   Order.objects.annotate(...) groups by Order. Each order is joined to\n"
+        "   its OrderItem rows. Count('items') counts those rows, and the total\n"
+        "   value multiplies quantity by unit_price on each item row before Sum\n"
+        "   adds them up for that single order.\n"
+    )
+    print(
+        "5. Why the two order annotations are run separately:\n"
+        "   Combining several annotations over the same join can multiply rows and\n"
+        "   inflate the counts and sums. Running them in separate queries keeps\n"
+        "   every number correct and easy to verify.\n"
+    )
+    print(
+        "6. Confirmation against the sample data:\n"
+        "   10 products in total, 8 active; average active price 21.72875; active\n"
+        "   stock 462; categories hold 4, 3 and 3 products; orders hold 2, 2, 2, 1,\n"
+        "   3 and 2 items; order totals 75.48, 58.30, 99.88, 32.50, 86.99 and\n"
+        "   66.70, which add up to 419.85.\n"
+    )
