@@ -422,3 +422,45 @@ EXPLANATIONS
    3 and 2 items; order totals 75.48, 58.30, 99.88, 32.50, 86.99 and
    66.70, which add up to 419.85.
 
+======================================================================
+CONSTRAINT CHECKS (every attempt is rolled back at the end)
+======================================================================
+
+Question : Control: is a valid product with price 0.00 and stock 0 accepted? (boundary values)
+Statement: Product.objects.create(name="Control", sku="OK-1", price=Decimal("0.00"), stock=0, category=Category.objects.first())
+Result   : ACCEPTED (row saved inside the demo transaction)
+
+Question : Is a negative price rejected? (CheckConstraint price >= 0)
+Statement: Product.objects.create(name="Bad", sku="BAD-1", price=Decimal("-1.00"), stock=1, category=Category.objects.first())
+Result   : REJECTED by the database (IntegrityError): CHECK constraint failed: product_price_non_negative
+
+Question : Is a negative stock rejected? (CheckConstraint stock >= 0)
+Statement: Product.objects.create(name="Bad", sku="BAD-2", price=Decimal("1.00"), stock=-1, category=Category.objects.first())
+Result   : REJECTED by the database (IntegrityError): CHECK constraint failed: product_stock_non_negative
+
+Question : Is a duplicate SKU rejected? (unique sku)
+Statement: Product.objects.create(name="Copy", sku="E001", price=Decimal("1.00"), stock=1, category=Category.objects.first())
+Result   : REJECTED by the database (IntegrityError): UNIQUE constraint failed: inventory_product.sku
+
+Question : Is a duplicate category name rejected? (unique name)
+Statement: Category.objects.create(name="Electronics")
+Result   : REJECTED by the database (IntegrityError): UNIQUE constraint failed: inventory_category.name
+
+Question : Is a duplicate customer email rejected? (unique email)
+Statement: Customer.objects.create(name="Copy", email="aisha@example.com")
+Result   : REJECTED by the database (IntegrityError): UNIQUE constraint failed: inventory_customer.email
+
+Question : Is an order item with quantity 0 rejected? (CheckConstraint quantity >= 1)
+Statement: OrderItem.objects.create(order_id=1, product=Product.objects.get(sku="G003"), quantity=0, unit_price=Decimal("1.00"))
+Result   : REJECTED by the database (IntegrityError): CHECK constraint failed: orderitem_quantity_at_least_one
+
+Question : Is a negative unit_price rejected? (CheckConstraint unit_price >= 0)
+Statement: OrderItem.objects.create(order_id=1, product=Product.objects.get(sku="G003"), quantity=1, unit_price=Decimal("-1.00"))
+Result   : REJECTED by the database (IntegrityError): CHECK constraint failed: orderitem_unit_price_non_negative
+
+Question : Is the same product twice in one order rejected? (unique order + product)
+Statement: OrderItem.objects.create(order_id=1, product=Product.objects.get(sku="E001"), quantity=1, unit_price=Decimal("24.99"))
+Result   : REJECTED by the database (IntegrityError): UNIQUE constraint failed: inventory_orderitem.order_id, inventory_orderitem.product_id
+
+Question : Is the sample data unchanged after these attempts?
+Result   : products = 10, order items = 12, categories = 3, customers = 3
