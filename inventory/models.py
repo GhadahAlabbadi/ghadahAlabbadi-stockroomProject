@@ -17,6 +17,7 @@ class Product(models.Model):
     sku = models.CharField(max_length=30, unique=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     stock = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
     category = models.ForeignKey(
         Category,
         on_delete=models.PROTECT,
