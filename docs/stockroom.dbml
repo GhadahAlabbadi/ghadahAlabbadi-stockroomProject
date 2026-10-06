@@ -1,0 +1,62 @@
+Enum order_status {
+  pending
+  paid
+  shipped
+  cancelled
+}
+
+Table Category {
+  id int [pk, increment]
+  name varchar(100) [unique, not null]
+}
+
+Table Product {
+  id int [pk, increment]
+  name varchar(150) [not null]
+  sku varchar(30) [unique, not null]
+  price decimal(10,2) [not null, note: 'check: price >= 0']
+  stock int [not null, default: 0, note: 'check: stock >= 0']
+  is_active boolean [not null, default: true, note: 'added in the second migration']
+  category_id int [not null]
+}
+
+Table Customer {
+  id int [pk, increment]
+  name varchar(100) [not null]
+  email varchar(254) [unique, not null]
+}
+
+Table "Order" {
+  id int [pk, increment]
+  customer_id int [not null]
+  status order_status [not null, default: 'pending']
+  created_at timestamp [not null]
+}
+
+Table OrderItem {
+  id int [pk, increment]
+  order_id int [not null]
+  product_id int [not null]
+  quantity int [not null, note: 'check: quantity >= 1']
+  unit_price decimal(10,2) [not null, note: 'check: unit_price >= 0']
+
+  indexes {
+    (order_id, product_id) [unique, name: 'unique_product_per_order']
+  }
+}
+
+Ref: Product.category_id > Category.id [delete: restrict]
+Ref: "Order".customer_id > Customer.id [delete: restrict]
+Ref: OrderItem.order_id > "Order".id [delete: cascade]
+Ref: OrderItem.product_id > Product.id [delete: restrict]
+
+Note ERD_Summary {
+  '''
+  - Category 1 to N Product: a product must have one category (mandatory); a category may have no products yet (optional).
+  - Customer 1 to N Order: an order must have one customer (mandatory); a customer may have no orders yet (optional).
+  - Order 1 to N OrderItem: an item must belong to one order (mandatory); an order has one or more items in business terms.
+  - Product 1 to N OrderItem: an item must refer to one product (mandatory); a product may never be ordered (optional).
+  - Order M to N Product, resolved through OrderItem, which also stores quantity and unit_price.
+  - The unique pair (order_id, product_id) prevents the same product appearing twice in one order.
+  '''
+}
