@@ -215,19 +215,14 @@ Why `aggregate()` and `annotate()` differ:
 
 ## Output screenshots
 
-All outputs are also saved as screenshots in the `outputs/` folder.
+Every command output is also saved as a screenshot in the `outputs/` folder.
 
-| Requirement                             | Screenshot                                                         |
-| --------------------------------------- | ------------------------------------------------------------------ |
-| Project check and migration consistency | `outputs/01_django_check.png`                                      |
-| Migrations applied                      | `outputs/02_showmigrations.png`                                    |
-| Initial migration SQL                   | `outputs/03_sqlmigrate_0001.png`                                   |
-| Schema change migration SQL             | `outputs/04_sqlmigrate_0002.png`                                   |
-| Sample data loaded                      | `outputs/05_seed_data.png`                                         |
-| Admin: products and orders              | `outputs/06_admin_products.png`, `outputs/07_admin_orders.png`     |
-| CRUD                                    | `outputs/08_crud_a.png`, `outputs/08_crud_b.png`                   |
-| QuerySets and lookups                   | `outputs/09_querysets_a.png`, `outputs/09_querysets_b.png`         |
-| Relationship queries and explanations   | `outputs/10_relationships_a.png`, `outputs/10_relationships_b.png` |
-| Aggregation and annotation              | `outputs/11_aggregation_a.png`, `outputs/11_aggregation_b.png`     |
-| Constraint checks                       | `outputs/12_constraints.png`                                       |
-| Server starts                           | `outputs/13_runserver.png`                                         |
+| Folder                 | Contents                                                                                                                                                              |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| `outputs/Setup`        | `01_django_check.png`, `02_makemigrations_check.png`: project check and migration consistency                                                                         |
+| `outputs/Migrations`   | `showmigrations`, `sqlmigrate` for 0001 (4 parts) and 0002, the migration files, and the model code (4 parts)                                                         |
+| `outputs/SampleData`   | `seed_data --reset`, running `seed_data` again, and the seed command code (4 parts)                                                                                   |
+| `outputs/Admin`        | Server start, admin home, products, categories, customers, orders, order detail with inline items, the protected delete page, and the negative price constraint error |
+| `outputs/ORM`          | CRUD (3 parts), QuerySets (4 parts), relationships and explanations (6 parts), aggregation and annotation (3 parts), constraint checks                                |
+| `outputs/Evidence_Git` | The saved evidence file (5 parts), `git ls-files`, `git log`, `git status`, and the ERD                                                                               |
+| `outputs/GitHub`       | The private repository, migrations folder, README and docs folder on GitHub                                                                                           |     |
