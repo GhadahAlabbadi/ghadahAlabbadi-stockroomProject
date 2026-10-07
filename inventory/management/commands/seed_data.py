@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand
-from django.db import transaction
+from django.db import connection, transaction
 
 from inventory.models import Category, Customer, Order, OrderItem, Product
 
@@ -16,6 +16,12 @@ class Command(BaseCommand):
             help="Delete all existing inventory data before creating the sample data.",
         )
 
+    def restart_id_numbering(self):
+        """Make new rows start again at id 1 (SQLite keeps counting otherwise)."""
+        if connection.vendor == "sqlite":
+            with connection.cursor() as cursor:
+                cursor.execute("DELETE FROM sqlite_sequence WHERE name LIKE 'inventory_%'")
+
     @transaction.atomic
     def handle(self, *args, **options):
         if options["reset"]:
@@ -24,6 +30,7 @@ class Command(BaseCommand):
             Product.objects.all().delete()
             Customer.objects.all().delete()
             Category.objects.all().delete()
+            self.restart_id_numbering()
         elif Product.objects.exists():
             self.stdout.write(
                 self.style.WARNING("Data already exists. Run with --reset to recreate it.")

@@ -212,3 +212,22 @@ Why `aggregate()` and `annotate()` differ:
 - Add views or a REST API and a simple front end for browsing products and placing orders.
 - Add indexes on frequently filtered fields and move to PostgreSQL for production.
 - Add automated tests for the models, constraints and queries.
+
+## Output screenshots
+
+All outputs are also saved as screenshots in the `outputs/` folder.
+
+| Requirement                             | Screenshot                                                         |
+| --------------------------------------- | ------------------------------------------------------------------ |
+| Project check and migration consistency | `outputs/01_django_check.png`                                      |
+| Migrations applied                      | `outputs/02_showmigrations.png`                                    |
+| Initial migration SQL                   | `outputs/03_sqlmigrate_0001.png`                                   |
+| Schema change migration SQL             | `outputs/04_sqlmigrate_0002.png`                                   |
+| Sample data loaded                      | `outputs/05_seed_data.png`                                         |
+| Admin: products and orders              | `outputs/06_admin_products.png`, `outputs/07_admin_orders.png`     |
+| CRUD                                    | `outputs/08_crud_a.png`, `outputs/08_crud_b.png`                   |
+| QuerySets and lookups                   | `outputs/09_querysets_a.png`, `outputs/09_querysets_b.png`         |
+| Relationship queries and explanations   | `outputs/10_relationships_a.png`, `outputs/10_relationships_b.png` |
+| Aggregation and annotation              | `outputs/11_aggregation_a.png`, `outputs/11_aggregation_b.png`     |
+| Constraint checks                       | `outputs/12_constraints.png`                                       |
+| Server starts                           | `outputs/13_runserver.png`                                         |
